@@ -1,0 +1,36 @@
+[project]
+name = "pod-transcribe"
+version = "0.0.1"
+description = "Tool for generating transcripts of audio files."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+
+authors = [
+    { name="Adam Johnston", email="adam.johnston00@gmail.com" },
+]
+
+requires-python = ">=3.12"
+
+dependencies = [ "whisperx" ]
+
+[project.scripts]
+transcribe = "pod_transcribe:main"
+
+[dependency-groups]
+dev = [
+    "ipython",
+    "prek",
+    "ruff",
+    "ty",
+]
+
+[tool.uv]
+package = true
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+docstring-code-format = true
+quote-style = "single"
