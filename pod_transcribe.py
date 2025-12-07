@@ -5,6 +5,7 @@ import heapq
 import os
 import re
 import struct
+import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import timedelta
@@ -242,14 +243,38 @@ def main():
     for speaker, name in new_names.items():
         embeddings.add_embedding(name, transcript.speaker_embeddings[speaker])
     for speaker in set(transcript.speaker_embeddings) - set(speaker_names):
+        embedding = transcript.speaker_embeddings[speaker]
         lines = (s for s in transcript.segments if s.get('speaker') == speaker)
         segments = heapq.nlargest(3, lines, key=lambda s: len(s['text']))
         if not segments:
             continue
-        formatted = '\n'.join(f'{format_ts(s["start"])}: {s["text"]}' for s in segments)
-        name = input(f'What name should be used for this speaker:\n\n{formatted}\n\n')
-        speaker_names[speaker] = name
-        embeddings.add_embedding(name, transcript.speaker_embeddings[speaker])
+        formatted = '\n'.join(f'[{i}] {format_ts(s["start"])}: {s["text"]}' for i, s in enumerate(segments, 1))
+        closest, score = embeddings.closest(embedding)
+        suggest = f' [closest={closest}, score={score}]' if closest else ''
+        playback_hint = f', or {", ".join(map(str, range(1, len(segments) + 1)))} to hear sample'
+        while True:
+            name = input(f'What name should be used for this speaker{playback_hint}:{suggest}\n\n{formatted}\n\n')
+            try:
+                idx = int(name) - 1
+                if idx < 0 or idx >= len(segments):
+                    print('Invalid sample index')
+                    continue
+                s = segments[idx]
+                playback_args = (
+                    'mpv',
+                    f'--start={format_ts(s["start"] - 1)}',
+                    f'--end={format_ts(s["end"] + 1)}',
+                    args.file,
+                )
+                print(f'Calling {" ".join(playback_args)}')
+                subprocess.check_call(playback_args)
+                continue
+            except Exception:
+                pass
+            if yn_check(f'Use {name!r}?'):
+                speaker_names[speaker] = name
+                embeddings.add_embedding(name, embedding)
+                break
 
     with open(os.path.expanduser(args.out), 'w') as fp:
         for segment in transcript.segments:
